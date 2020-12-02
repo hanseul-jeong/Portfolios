@@ -28,11 +28,8 @@ Coming soon !
 
 ## Results
 <p align='center'>
-<img src="/sample_data.png" width="450"    />
-<img src="/sample_cul.png" width="450"    />
+<img src="/sample_data.png" width="300"    />
+<img src="/sample_cul.png" width="300"    />
 <p/>
-
-![img data](/sample_data.png "raw data")  
-
-![img culAsset](/sample_cul.png "performance")  
+ 
 
