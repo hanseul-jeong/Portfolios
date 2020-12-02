@@ -19,6 +19,9 @@ Compared with below methods
 **OLMAR (Online Moving Average Reversion)**  
 **WMAMR (Weighted Moving Average Mean Reversion**  
 
+I apply them on random data yet,  
+I'll utilize real dataset with in a few days. 
+
 ## 3) Simple RL Application
 
 Coming soon !
