@@ -28,8 +28,8 @@ Coming soon !
 
 ## Results
 <p align='center'>
-<img src="/sample_data.png" width="350"    />
-<img src="/sample_cul.png" width="350"    />
+<img src="/sample_data.png" width="400"    />
+<img src="/sample_cul.png" width="400"    />
 <p/>
  
 
