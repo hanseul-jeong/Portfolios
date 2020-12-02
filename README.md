@@ -29,7 +29,7 @@ Coming soon !
 ## Results
 <p align='center'>
 <img src="/sample_data.png" width="450"    />
-<img src="/samle_cul.png" width="450"    />
+<img src="/sample_cul.png" width="450"    />
 <p/>
 
 ![img data](/sample_data.png "raw data")  
