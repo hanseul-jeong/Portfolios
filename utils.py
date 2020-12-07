@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 
 def get_relative_ratio(data):
     T = np.shape(data)[1]
@@ -21,3 +22,20 @@ def simplex_projection(v, z=1):
     w = (v - theta)
     w[w<0] = 0
     return w
+
+
+def set_hidden(b, h, n=1, device='cpu'):
+    # num_layers, batch, hidden
+    hidden = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float32).to(device)
+    cell = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float32).to(device)
+
+    return hidden, cell
+
+def normalize(x, columns, type='window'):
+
+    if type == 'window':    # divide with last close of window
+        c = columns.index('open')
+        T, A, W, C = np.shape(x)
+        return x / x[:,:,-1,c].reshape(T,A,1,1)
+    elif type == 'past':    # divide with previous window
+        return x / np.concatenate((x[:,:,0:1,:], x[:,:,:-1,:]), axis=2)
