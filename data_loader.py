@@ -83,7 +83,6 @@ class data_loader():
         self.n_features = len(choosen)
         A, T, C = np.shape(self.Data)
         col_mask = np.array([True if c in choosen else False for c in self.columns])
-        # ass_mask = self.selective()
         raw_data = np.array([self.Data[:, t:t+n_window, :] for t in range(0, T-n_window+1, n_slide)])   # T, A, W, C
         raw_data = raw_data.transpose([1, 0,2,3])   # A, T, W, C
 
