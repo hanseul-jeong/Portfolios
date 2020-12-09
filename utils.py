@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+import math
 
 def get_relative_ratio(data):
     T = np.shape(data)[1]
@@ -23,19 +24,27 @@ def simplex_projection(v, z=1):
     w[w<0] = 0
     return w
 
+def normalize(x, columns, type='window'):
+    if type == 'window':    # divide with last close of window
+        c = columns.index('open')
+        A, T, W, C = np.shape(x)
+        return x / x[:,:,-1,c].reshape(A,T,1,1)
+    elif type == 'past':    # divide with previous window
+        return x / np.concatenate((x[:,:,0:1,:], x[:,:,:-1,:]), axis=2)
 
 def set_hidden(b, h, n=1, device='cpu'):
     # num_layers, batch, hidden
-    hidden = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float32).to(device)
-    cell = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float32).to(device)
+    hidden = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float64).to(device)
+    cell = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float64).to(device)
 
     return hidden, cell
 
-def normalize(x, columns, type='window'):
+def get_logprob(x, mu, sigma):
+    '''
+    return log-likelihood of x in case of N(mu, sigma^2)
+    '''
 
-    if type == 'window':    # divide with last close of window
-        c = columns.index('open')
-        T, A, W, C = np.shape(x)
-        return x / x[:,:,-1,c].reshape(T,A,1,1)
-    elif type == 'past':    # divide with previous window
-        return x / np.concatenate((x[:,:,0:1,:], x[:,:,:-1,:]), axis=2)
+    constant = 1/(sigma * np.sqrt(2*math.pi))
+    z = -(x - mu)**2 / (2 * sigma.pow(2))
+
+    return constant * torch.exp(z)

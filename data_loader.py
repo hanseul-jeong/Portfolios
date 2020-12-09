@@ -5,14 +5,11 @@ import os, sys
 from utils import normalize
 
 class data_loader():
-    def __init__(self, StartDate=20100101, EndDate=20200101, data_dir='Dataset', data_='KOSPI_daily.db'):
+    def __init__(self, StartDate=20100101, EndDate=20200101, data_dir='Dataset', data_='KOSPI_daily.db', selective=None):
         data_path = os.path.join(data_dir, data_)
         self.n_rawFeature = 6
         self.n_features = None
         self.columns = ['date', 'open', 'high', 'low', 'close', 'volume']
-
-        companies = ['두산', '기아차','한화', '대림건설','롯데푸드','한진','금호산업','대한항공',
-                'LG','신세계','농심','삼성전자','오뚜기','S-Oil','금호타이어','셀트리온']
 
         # check directory
         if not os.path.exists(data_dir):
@@ -24,6 +21,7 @@ class data_loader():
         df = pd.read_csv(os.path.join(data_dir,'code_dict.csv'))
         code_list = df['Code'].tolist()
         name_list = df['Name'].tolist()
+        self.code_to_name = {code: name for code, name in zip(code_list, name_list)}
         self.name_to_code = {name: code for code, name in zip(code_list, name_list)}
 
         # load data
@@ -33,15 +31,17 @@ class data_loader():
         n_samples = 0   # maximum sample numbers
         features = self.columns[0] + "".join([colon+col for colon, col in zip([', ']*(self.n_rawFeature-1), self.columns[1:])])
 
-        for name in companies:
-            code = self.name_to_code[name]
+        # asset range
+        if selective is not None:
+            code_list = [self.name_to_code[name] for name in selective]
+
+        for code in code_list:
             sql = "Select {features} from {code} where date >= {StartDate} and date <= {EndDate}"\
                 .format(features=features, code=code, StartDate=StartDate, EndDate=EndDate)
             cursor.execute(sql)
             d = cursor.fetchall()
             rawData.append(d)
             n_samples = len(d) if len(d) > n_samples else n_samples
-
         exc_idx = []
         # exclude short history stock
         for i, d in enumerate(rawData):
@@ -49,7 +49,7 @@ class data_loader():
                 exc_idx.append(i)
 
         n_assets = len(rawData) - len(exc_idx)
-        self.Data = np.zeros([n_assets, n_samples, self.n_rawFeature], dtype=np.float32)
+        self.Data = np.zeros([n_assets, n_samples, self.n_rawFeature], dtype=np.float64)
         self.code_list = []
         idx = 0
         for i in range(len(rawData)):
@@ -83,10 +83,11 @@ class data_loader():
         self.n_features = len(choosen)
         A, T, C = np.shape(self.Data)
         col_mask = np.array([True if c in choosen else False for c in self.columns])
+
         raw_data = np.array([self.Data[:, t:t+n_window, :] for t in range(0, T-n_window+1, n_slide)])   # T, A, W, C
         raw_data = raw_data.transpose([1, 0,2,3])   # A, T, W, C
-
-        y = raw_data[:, :-1, 0, self.columns.index('close')]/raw_data[:, 1:, -1, self.columns.index('close')]
+        # x_t+1/x_t
+        y = raw_data[:, 1:, 0, self.columns.index('close')]/raw_data[:, :-1, -1, self.columns.index('close')]
         n_train = (raw_data[0,:,-1,self.columns.index('date')] < ValidDate).sum()
 
         normed_data = normalize(raw_data, self.columns)
