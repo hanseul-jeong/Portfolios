@@ -1,26 +1,30 @@
-# Portfolios
-Portfolio project with Reinforcement Learning
-
+# Portfolio project with Reinforcement Learning
 ## 1) Data Collection
 
 refer [Open source](https://github.com/gyusu/Creon-Datareader "대신증권 데이터 수집 github")  
 with **preprocessor.py** split data into 3:1 (train:test).
 
 
-## 2) Momentum Strategies Implementation
-
-Compared with below methods  
+## 2) Momentum-based Investment Strategies  
+I implemented these strategies based on this paper: [Online Portfolio Selection: A Survey](https://arxiv.org/pdf/1212.2129.pdf) 
 
 **BAH (Buy and Hold)**  
+Equally invest m assets at once
 **Best**  
+Choose the best profitable asset in a hindsight   
 **CRP (Constant Rebalanced Portfolio)**  
+Rebalance assets to a fixed ratio every period  
 **EG (Exponential Gradient)**  
+It is based on "Follow-the-Winner" approach  
+It aims to maximize log-return with little change in portfolio value      
 **Anticor (Anti correlation)**  
+It is based on "Follow-the-Looser" approach  
+It assumes mean-reversion considering cross-correlation and auto-correlation  
 **OLMAR (Online Moving Average Reversion)**  
-**WMAMR (Weighted Moving Average Mean Reversion**  
+It predicts future price with moving average  
+This method minimizes the change of portfolio value which yields profit more than certain value (epsilon)  
+<!-- **WMAMR (Weighted Moving Average Mean Reversion** -->
 
-I apply them on random data yet,  
-I'll utilize real dataset with in a few days. 
 
 ## 3) Simple RL Application
 
