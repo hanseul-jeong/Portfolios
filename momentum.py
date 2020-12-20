@@ -1,5 +1,8 @@
 from utils import get_relative_ratio, simplex_projection
 import numpy as np
+from numpy.linalg import inv
+
+DTYPE = np.float32
 
 def BAH(data):
     '''
@@ -9,7 +12,7 @@ def BAH(data):
     '''
     data = get_relative_ratio(data)
     M, T = np.shape(data)
-    b_0 = np.ones(M, dtype=np.float32)/M # [1/M, 1/M, ..., 1/M]
+    b_0 = np.ones(M, dtype=DTYPE)/M # [1/M, 1/M, ..., 1/M]
 
     cul_return = np.cumprod(data, axis=1)
     cul_return = np.matmul(b_0.reshape(1,-1), cul_return)
@@ -26,7 +29,7 @@ def Best(data):
 
     Growths = data[:, -1] / data[:, 0]
     idx = np.argmax(Growths)
-    b_0 = np.zeros(M, dtype=np.float32)
+    b_0 = np.zeros(M, dtype=DTYPE)
     b_0[idx] = 1
     cul_return = np.cumprod(get_relative_ratio(data), axis=1)
     cul_return = np.dot(b_0, cul_return)
@@ -41,7 +44,7 @@ def CRP(data):
     '''
     data = get_relative_ratio(data)
     M, T = np.shape(data)
-    b_0 = np.ones((1,M), dtype=np.float32)/M # [1/M, 1/M, ..., 1/M]
+    b_0 = np.ones((1,M), dtype=DTYPE)/M # [1/M, 1/M, ..., 1/M]
 
     cul_return = np.cumprod(np.dot(b_0,data))
 
@@ -56,8 +59,8 @@ def EG(data, eta=1.5):
     '''
     data = get_relative_ratio(data)
     M, T = np.shape(data)
-    b = np.ones_like(data, dtype=np.float32) / M # [1/M, 1/M, ..., 1/M]
-    cul_return = np.ones(T, dtype=np.float32)
+    b = np.ones_like(data, dtype=DTYPE) / M # [1/M, 1/M, ..., 1/M]
+    cul_return = np.ones(T, dtype=DTYPE)
 
     for t in range(T-1):
         prev_asset = np.sum(b[:,t-1]*data[:,t-1])
@@ -76,7 +79,7 @@ def Anticor(data, w=5):
     '''
     data = get_relative_ratio(data)
     M, T = np.shape(data)
-    b = np.ones_like(data, dtype=np.float32)/M # initialization
+    b = np.ones_like(data, dtype=DTYPE)/M # initialization
 
     sample_n = T-(2*w)+1    # # of total - early samples :(T-(2w-1))
     y1 = np.log([data[:,t-(2*w)+1:t-w+1] for t in range(2*w-1, T)])
@@ -103,8 +106,8 @@ def Anticor(data, w=5):
 
     # self-correlation
     cond = np.where(cond & (m_corr>0), True, False)
-    i_corr = np.empty([sample_n, M, M], dtype=np.float32)
-    j_corr = np.empty([sample_n, M, M], dtype=np.float32)
+    i_corr = np.empty([sample_n, M, M], dtype=DTYPE)
+    j_corr = np.empty([sample_n, M, M], dtype=DTYPE)
     for m in range(M):
         i_corr[:,m,:] = m_corr[:,m,m].reshape(-1,1)         # expand dim
         j_corr[:, :, m] = m_corr[:, m, m].reshape(-1, 1)    # expand dim
@@ -116,7 +119,7 @@ def Anticor(data, w=5):
     sum_claim = np.sum(claim, axis=-1).reshape(sample_n,M,1)
 
     transfer = np.where(sum_claim != 0, claim / sum_claim, 0)
-    transfer_ = np.zeros([sample_n, M, M], dtype=np.float32)
+    transfer_ = np.zeros([sample_n, M, M], dtype=DTYPE)
     # change-needed portfolio vector  (T-2w+1,M,1)
     b_ = b[:,2*w-1:].T.reshape(sample_n,M,1).copy()
     for t in range(sample_n-1):
@@ -139,7 +142,7 @@ def OLMAR(data, w=5, eps=10):
     :return: Cumulative return by times. np.array [T]
     '''
     M, T = np.shape(data)
-    b = np.ones_like(data, dtype=np.float32)/M
+    b = np.ones_like(data, dtype=DTYPE)/M
 
     # [1/M] for 0 ~ w-2 // [_] for w-1 ~ T
     _ = np.mean([data[:,t-w+1:t+1]for t in range(w-1, T)], axis=-1)
@@ -159,6 +162,34 @@ def OLMAR(data, w=5, eps=10):
     cul_return = np.cumprod((b*get_relative_ratio(data)).sum(0))
     return cul_return
 
+def PAMR(data, w=5, eps=0.5, C=500):
+    '''
+    Passive aggresive mean reversion.
+    :param data: M assets stock prices. np.array [MxT] (M: assets, T: times)
+    :param w: window size. scalar int
+    :param eps: epsilon. scalar int
+    :param C: variation for step. scalar int
+    :return: Cumulative return by times. np.array [T]
+    '''
+
+    M, T = np.shape(data)
+    b = np.ones_like(data, dtype=DTYPE) / M
+
+    X = get_relative_ratio(data)
+    market_mu = np.mean(X, axis=0)
+    market_dev = X - market_mu
+    var = np.sum(market_dev** 2, axis=0)
+
+    ####### check dimension ############################################################################################
+    for t in range(T):
+        le = np.max(0., np.dot(b[:,t], X[:,t]) - eps)
+        step = np.where(var[t] !=0, le / var[t], 0)
+
+        b_ = b[t] - step * market_dev[:,t]
+        b[:, t+1] = simplex_projection(b_)
+
+    cul_return = np.cumprod((b * X).sum(0))
+    return cul_return
 
 def WMAMR(data, w=5, eps=0.5, C=500):
     '''
@@ -171,7 +202,80 @@ def WMAMR(data, w=5, eps=0.5, C=500):
     '''
 
     M, T = np.shape(data)
-    b = np.ones_like(data, dtype=np.float32) / M
+    b = np.ones_like(data, dtype=DTYPE) / M
+
+    p_tilde = np.ones_like(data)
+    p_tilde[:, :w-1] = data[:, :w-1]    # early samples
+
+    # moving average
+    p_tilde[:, w-1:] = np.mean([data[:, t - w+1:t+1] for t in range(w-1, T)], axis=-1).T
+    market_mu = np.mean(p_tilde, axis=0)
+    market_dev = p_tilde - market_mu
+    var = np.sum(market_dev** 2, axis=0)
+
+    for t in range(T - 1):
+        expected_return = max(0, np.dot(b[:, t], p_tilde[:, t]) - eps)
+        step = np.where(var[t] != 0, expected_return / var[t], 0)
+        b_ = b[:,t] - step * market_dev[:,t]
+        b[:, t + 1] = simplex_projection(b_)
+
+    cul_return = np.cumprod((b * get_relative_ratio(data)).sum(0))
+    return cul_return
+
+# def UP():
+#     return
+#
+# def ONS(beta=,delta=, eta= ):
+#     # Online Newton Step
+#     grad = np.mat(r / np.dot(p, r)).T
+#     # update A
+#     self.A += grad * grad.T
+#     # update b
+#     self.b += (1 + 1. / self.beta) * grad
+#
+#     # projection of p induced by norm A
+#     pp = self.projection_in_norm(self.delta * self.A.I * self.b, self.A)
+#     return pp * (1 - self.eta) + np.ones(len(r)) / float(len(r)) * self.eta
+#
+#
+# def projection_in_norm(self, x, M):
+#     """ Projection of x to simplex indiced by matrix M. Uses quadratic programming.
+#     """
+#     m = M.shape[0]
+#
+#     P = matrix(2 * M)
+#     q = matrix(-2 * M * x)
+#     G = matrix(-np.eye(m))
+#     h = matrix(np.zeros((m, 1)))
+#     A = matrix(np.ones((1, m)))
+#     b = matrix(1.)
+#
+#     sol = solvers.qp(P, q, G, h, A, b)
+#     return np.squeeze(sol['x'])
+
+def CWMR(data, w=5, eps=-0.5, conf=0.95):
+    '''
+    Confidence Weighted Mean Reversion.
+    :param data: M assets stock prices. np.array [MxT] (M: assets, T: times)
+    :param w: window size. scalar int
+    :param eps: epsilon. scalar int
+    :param C: variation for step. scalar int
+    :return: Cumulative return by times. np.array [T]
+    '''
+
+    M, T = np.shape(data)
+    b = np.ones_like(data, dtype=DTYPE) / M
+
+    sigma = np.matrix(np.eye(M)/M**2)
+
+    lam = max(0,
+              (-b + np.sqrt(b ** 2 - 4 * a * c)) / (2. * a),
+              (-b - np.sqrt(b ** 2 - 4 * a * c)) / (2. * a))
+    # bound it due to numerical problems
+    lam = min(lam, 1E+7)
+
+    mu = mu - lam * sigma * (x - x_upper) / M
+    sigma = inv(inv(sigma) + theta * lam / U_sqroot * np.diag(x) ** 2)
 
     p_tilde = np.ones_like(data)
     p_tilde[:, :w-1] = data[:, :w-1]    # early samples
