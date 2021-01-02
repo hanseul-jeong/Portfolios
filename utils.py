@@ -4,7 +4,7 @@ import math
 
 def get_relative_ratio(data):
     T = np.shape(data)[1]
-    rr = np.ones_like(data, dtype=np.float64)
+    rr = np.ones_like(data, dtype=np.float32)
     for t in range(T-1):
         rr[:, t+1] = data[:,t+1] / data[:,t]
     return rr
@@ -34,8 +34,8 @@ def normalize(x, columns, type='window'):
 
 def set_hidden(b, h, n=1, device='cpu'):
     # num_layers, batch, hidden
-    hidden = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float64).to(device)
-    cell = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float64).to(device)
+    hidden = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float32).to(device)
+    cell = torch.zeros((n, b, h), requires_grad=False, dtype=torch.float32).to(device)
 
     return hidden, cell
 
@@ -48,3 +48,18 @@ def get_logprob(x, mu, sigma):
     z = -(x - mu)**2 / (2 * sigma.pow(2))
 
     return constant * torch.exp(z)
+
+def get_SR(x, risk_free):
+    '''
+    risk-adjusted return of x based on sharpe ratio
+    :param x: close prices A, T
+    :param risk_free: risk free profit (float)
+    :param window: range for standard deviation (int)
+    :return: sharpe_ratio
+    '''
+    dev = x - risk_free
+    avg_dev = torch.mean(dev, dim=1)
+    volatility = torch.std(dev, dim=1)
+
+    expected_return = torch.where(volatility != 0, avg_dev / volatility, torch.zeros_like(dev))
+    return expected_return
