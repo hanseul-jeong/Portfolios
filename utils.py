@@ -63,3 +63,27 @@ def get_SR(x, risk_free):
 
     expected_return = torch.where(volatility != 0, avg_dev / volatility, torch.zeros_like(dev))
     return expected_return
+
+def get_pearsonCorr(x, idx, window=-1):
+    '''
+
+    :param x: input data. 4-d torch.Tensor (float32) [Assets, Times, Windows, Columns]
+    :return:
+    '''
+    x = x[:,:,:,idx] # Close
+
+    # rolling-window
+    if window > 0:
+        x = x[:,:,-window:]
+
+    x = x.transpose(1,0)    # T, A, W
+
+    mu = x.mean(2)
+    Dev = (x - mu[:,:,None])
+    Sigma = torch.sqrt(torch.sum(Dev**2, 2))
+
+    Dev /= Sigma[:,:,None]
+
+    A = torch.bmm(Dev, Dev.transpose(2,1))  # (T, A, W) X (T, W, A) -> (T, A, A)
+
+    return A
