@@ -59,7 +59,9 @@ class data_loader():
                 self.Data[idx, :, :] = rawData[i]
                 self.code_list.append(code_list[i])
                 idx+= 1
-
+    @property
+    def n_train(self):
+        return self.__n_train
     def select_col(self, type):
 
         if type == 'OHLC':
@@ -88,7 +90,7 @@ class data_loader():
 
         return row_mask
 
-    def load_data(self, type='OHLC', ValidDate=20150101, n_window=60, n_slide=1):
+    def load_data(self, type='OHLC', ValidRatio=0.2, n_window=60, n_slide=1):
         '''
 
         :param type: Type of features 'OHLC', 'OHLCV,'V'
@@ -102,23 +104,26 @@ class data_loader():
 
         choosen, col_mask = self.select_col(type)
         self.n_features = len(choosen)
-        A, T, C = np.shape(self.Data)
+        _, T, __ = np.shape(self.Data)  # A, T, C
 
-        # ass_mask = self.selective()
-        raw_data = np.array([self.Data[:, t:t+n_window, :] for t in range(0, T-n_window+1, n_slide)])   # T, A, W, C
+        # window + 1 (for label)
+        raw_data = np.array([self.Data[:, t:t+n_window+1, :] for t in range(0, T-n_window, n_slide)])   # T, A, W, C
         raw_data = raw_data.transpose([1, 0,2,3])   # A, T, W, C
-        # x_t+1/x_t
-        y = raw_data[:, 1:, 0, self.columns.index('close')]/raw_data[:, :-1, -1, self.columns.index('close')]
-        n_train = (raw_data[0,:,-1,self.columns.index('date')] < ValidDate).sum()
 
-        volumes = raw_data[:, :n_train, -1, self.columns.index('volume')].mean(1)
+        # x_t+1/x_t
+        y = raw_data[:, :, -1, self.columns.index('close')]/raw_data[:, :, -2, self.columns.index('close')]
+        raw_data = raw_data[:,:,:-1,:]  # remove additional data
+
+        # n_train = (raw_data[0,:,-1,self.columns.index('date')] < ValidDate).sum()   ######### Float32일 경우 날짜가 다를 수 있음. 확인하기!
+        self.__n_train = int((1-ValidRatio) * (T-n_window))
+
+        volumes = raw_data[:, :self.__n_train, -1, self.columns.index('volume')].mean(1)
         row_mask = self.select_row(volumes)
 
         raw_data = raw_data[row_mask,:,:,:]
         y = y[row_mask, :]
         normed_data = normalize(raw_data, self.columns)
-        train, valid = normed_data[:, :n_train, :, col_mask], normed_data[:, n_train:, :, col_mask]
-        valid = valid[:, :-1]  # remove the last due to labels
+        train, valid = normed_data[:, :self.__n_train, :, col_mask], normed_data[:, self.__n_train:, :, col_mask]
 
-        train_x, valid_x = y[:, :n_train], y[:, n_train:]
+        train_x, valid_x = y[:, :self.__n_train], y[:, self.__n_train:]
         return train, train_x, valid, valid_x
