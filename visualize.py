@@ -7,11 +7,10 @@ def show_allocation_ratio(actions_real):
     import seaborn as sns
     fig = plt.figure()
     colors = sns.color_palette("Spectral")
-    # T = actions_real.size(0)
-    T = np.shape(actions_real)[0]
+    T = actions_real.size(0)
     x = range(T)
-    # y = actions_real.detach().cpu().numpy().T   # A, T
-    y = actions_real.T
+    y = actions_real.detach().cpu().numpy().T   # A, T
+
     plt.stackplot(x, y, colors=colors)
     plt.xlabel('Change of asset ratio', fontsize=14)
     plt.show()
