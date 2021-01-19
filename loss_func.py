@@ -3,23 +3,27 @@ import torch
 def norm(reward):
     return (reward - reward.mean().detach() ) / reward.std().detach()
 
-def transaction_cost(actions, y, cost=0.0025, device='cuda:0'):
-    T, A = actions.size()
-    prev_actions = (actions[:-1,:] * y[:-1,:]) / (actions[:-1,:] * y[:-1,:]).sum(1)[:,None].detach()
-    next_actions = actions[1:, :]
+def transaction_cost(actions_with_cash, y, cost=0.0025, device='cuda:0'):
+    T, A_ = actions_with_cash.size()
 
-    fee = torch.abs(next_actions - prev_actions)*cost
+    prev_actions = (actions_with_cash[:-1,:] * y[:-1,:])/(actions_with_cash[:-1,:] * y[:-1,:]).sum(1)[:,None]
+    first = torch.zeros([1,A_]).to(device)
+    first[0, -1] = 1
+    prev_actions = torch.cat((first, prev_actions),dim=0)
+    #################################################### Something is weird ################################################
+    fee = torch.abs(actions_with_cash[:,-1:] - prev_actions[:,-1:].detach())*cost
 
-    return torch.cat((torch.zeros([1,A]).to(device),fee), dim=0).sum(1).mean()
+    return fee.sum(1)
 
 
-def naive_logreturn(actions, y, cost=False):
+def naive_logreturn(actions_with_cash, y, cost=False):
     if cost:
         c = calculate_pv_after_commission()
     else:
         c = 0.0
-    reward_ = -torch.log((actions*y*(1-c)).sum(1))
-    return reward_.mean()
+    return actions_with_cash * y
+    # cash = actions_with_cash[:,-1:]
+    # return torch.cat(((actions_with_cash[:,:]*y[:,:]*(1-c)), cash),dim=1)
 
 
 def sharpe_ratio(actions, y, cost=True, risk_free=1.0):
@@ -37,18 +41,22 @@ def sharpe_ratio(actions, y, cost=True, risk_free=1.0):
     return expected_return
 
 def calculate_pv_after_commission(w_now, y, c=0.0025):
-    """
-    @:param w1: target portfolio vector, first element is btc
-    @:param w0: rebalanced last period portfolio vector, first element is btc
-    c: rate of commission fee, proportional to the transaction cost
-    """
-    # rebalanced w (t0 = [0,0, ..., 0])
-    w_prev = (w_now * y)
-    w_prev[1:] = w_prev[:-1]
-    w_prev[0,:] = 0
+    '''
 
-    cash_prev = 1 - w_prev.sum(1)
-    cash_now = 1 - w_now.sum(1)
+    :param w_now: investment ratio at time t    <Tensor.float32> [T, A]
+    :param y: relative ratio of price   <Tensor.float32> [T, A]
+    :param c: transaction cost          <float> scalar
+    :return: mu. remaining ratio witho
+    '''
+
+    # rebalanced w (t0 = [0,0, ..., 0])
+    w_prev = (w_now * y) / (w_now* y).sum(1)[:,None]
+    w_prev[1:] = w_prev[:-1]
+    w_prev[0, :-1] = 0  # No stock
+    w_prev[0, -1] = 1   # All cash
+
+    cash_now = w_now[:, -1]
+    cash_prev = w_prev[:, -1]
 
     mu = torch.ones_like(w_now)
     T = w_now.size(0)
@@ -58,8 +66,8 @@ def calculate_pv_after_commission(w_now, y, c=0.0025):
         while abs(mu1-mu0) > 1e-10:
             mu0 = mu1
             mu1 = (1 - c * cash_prev[t] -
-                   (2 * c - c ** 2) * torch.sum(torch.relu(w_prev[t] - mu1*w_now[t]))) / (1 - c * cash_now[t])
-        mu[t] = mu1
+                   (2 * c - c ** 2) * torch.sum(torch.relu(w_prev[t, :-1] - mu1*w_now[t, :-1]))) / (1 - c * cash_now[t])
+        mu[t,:-1] = mu1
     return mu
 
 #
