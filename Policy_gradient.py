@@ -10,20 +10,24 @@ n_RGB = 3
 class Policy_gradient():
     def __init__(self, n_batch, n_asset, discount_factor=0.99, device='cuda'):
         self.input_shape = (1, 4)
-        self.n_asset = n_asset
-        self.n_batch = n_batch
+        self.__n_asset = n_asset
+        self.__n_batch = n_batch
 
         self.discount_factor = discount_factor
         self.device = device
 
     def select_action(self, mu, sigma, epsilon):
-        actions = torch.normal(mu, sigma)
+        # actions = torch.normal(mu, sigma)
+        actions = mu
         logprobs = get_logprob(actions, mu, sigma)
 
         # No 공매도 & normalize
         actions = torch.relu(actions)
-        actions = actions / actions.sum(0).unsqueeze(0).detach()
-
+        actions = torch.where(actions.sum(1)[:,None].expand(-1,100)==0,
+                              torch.ones_like(actions)/self.__n_asset,
+                              actions / actions.sum(1)[:,None].detach())
+        assert not torch.any(torch.isnan(actions))
+        assert not torch.any(torch.isnan(logprobs))
         return logprobs, actions
 
     # Calculate loss and backward

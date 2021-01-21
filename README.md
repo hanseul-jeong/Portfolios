@@ -35,10 +35,17 @@ This method minimizes the change of portfolio value which yields profit more tha
 
 Coming soon !
 
-## Results
+## 4) Results
 <p align='center'>
-<img src="/sample_data.png" width="400"    />
-<img src="/sample_cul.png" width="400"    />
+<img src="/imgs/sample_data.png" width="400"    />
+<img src="/imgs/sample_cul.png" width="400"    />
 <p/>
  
+visualize.show_allocation_ratio function  
+
+> Toy example
+
+<p align='center'>
+<img src="/imgs/sample_portfolio_ratio.png" width="400"    />
+<p/>
 

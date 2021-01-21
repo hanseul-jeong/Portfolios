@@ -1,9 +1,9 @@
 import torch.nn as nn
 import torch
 
-class model(nn.Module):
+class LSTM_whole(nn.Module):
     def __init__(self, n_window, n_feature, n_hidden, n_batch, n_asset, n_layers=1, device='cpu'):
-        super(model, self).__init__()
+        super(LSTM_whole, self).__init__()
         self.n_window = n_window
         self.n_feature = n_feature
         self.n_hidden = n_hidden
@@ -28,3 +28,38 @@ class model(nn.Module):
         mu, logvar = self.mu(z), self.logvar(z)
 
         return mu, logvar
+
+class CNN_whole(nn.Module):
+    def __init__(self, n_window, n_feature, n_hidden, n_batch, n_asset, n_layers=1, device='cpu'):
+        super(CNN_whole, self).__init__()
+        self.n_window = n_window
+        self.n_feature = n_feature
+        self.n_hidden = n_hidden
+        self.__n_batch = n_batch
+        self.__n_asset = n_asset
+
+        self.filter1 = nn.Conv2d(n_feature, self.n_hidden, [1,5])
+        self.filter2 = nn.Conv2d(self.n_hidden, self.n_hidden, [1,5])
+        self.filter3 = nn.Conv2d(self.n_hidden, self.n_hidden, [1,5])
+        self.__hidden_dim = self.get_dim(width=n_window, layer=3, filter=5, padding=0, str=1)
+
+        # fully-connected layer
+        self.mu = nn.Conv2d(self.n_hidden, 1, [1, self.__hidden_dim])
+        self.logvar = nn.Conv2d(self.n_hidden, 1, [1, self.__hidden_dim])
+
+        self.policy_history = torch.FloatTensor().to(device)
+
+    def forward(self, x):
+        x = torch.relu(self.filter1(x))
+        x = torch.relu(self.filter2(x))
+        x = torch.relu(self.filter3(x))
+
+        mu, logvar = self.mu(x).squeeze(), self.logvar(x).squeeze()
+        mu = torch.softmax(mu, dim=1)
+        return mu, logvar
+
+    def get_dim(self, width, layer=3, filter=3, padding=0, str=1):
+        width_ = width + (2*padding)
+        for i in range(layer):
+            width_ = int((width_ - filter)/str) + 1
+        return width_
