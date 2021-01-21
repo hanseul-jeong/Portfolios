@@ -24,6 +24,15 @@ def simplex_projection(v, z=1):
     w[w<0] = 0
     return w
 
+def mc_simplex(d, points):##########################################################
+    """ Sample random points from a simplex with dimension d.
+    :param d: Number of dimensions.
+    :param points: Total number of points.
+    """
+    a = np.sort(np.random.random((points, d)))
+    a = np.hstack([np.zeros((points,1)), a, np.ones((points,1))])
+    return np.diff(a)
+
 def normalize(x, columns, type='window'):
     if type == 'window':    # divide with last close of window
         c = columns.index('open')
@@ -63,6 +72,21 @@ def get_SR(x, risk_free):
 
     expected_return = torch.where(volatility != 0, avg_dev / volatility, torch.zeros_like(dev))
     return expected_return
+
+def get_diff_SR(x, risk_free):
+    '''
+    risk-adjusted return of x based on differential sharpe ratio
+    J. Moody and M. Saffel, "Reinforcement Learning for Trading", NeurIPS 1999
+    :param x:
+    :param risk_free:
+    :return:
+    '''
+    A = (1-eta)*A_ + eta*R
+    B = (1-eta)*B_ + eta*(R**2)
+    dSt = B_ * devA - (1/2) * A_ * devB
+    deta = (B_ - (A_**2) ).pow(3/2)
+    D = dSt/deta
+    return D
 
 def get_pearsonCorr(x, idx, window=-1):
     '''
