@@ -1,13 +1,13 @@
 import numpy as np
 
-def sharpe_ratio(acc_portfolio, risk_free=1.0):
+def sharpe_ratio(daily_return, risk_free=1.0):
     '''
 
-    :param acc_portfolio: accumulative portfolio value
+    :param daily_return: daily return (e.g., (portfolio * return ratio)_t )
     :param risk_free: risk-free profit
     :return:
     '''
-    excess_return = acc_portfolio - risk_free
+    excess_return = daily_return - risk_free
     mu = np.mean(excess_return)
     volatility = np.std(excess_return)
 
